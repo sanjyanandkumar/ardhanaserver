@@ -1,68 +1,54 @@
 package com.ardhana.service;
 
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
-
+import com.ardhana.dto.CourseRequest;
 import com.ardhana.model.Course;
 import com.ardhana.repository.CourseRepository;
-import com.ardhana.repository.EnrollmentRepository;
-import com.ardhana.repository.LessonRepository;
+import org.springframework.stereotype.Service;
+import java.util.List;
 
 @Service
 public class CourseService {
 
     private final CourseRepository courseRepository;
-    private final LessonRepository lessonRepository;
-    private final EnrollmentRepository enrollmentRepository;
 
-    public CourseService(CourseRepository courseRepository,
-                         LessonRepository lessonRepository,
-                         EnrollmentRepository enrollmentRepository) {
+    public CourseService(CourseRepository courseRepository) {
         this.courseRepository = courseRepository;
-        this.lessonRepository = lessonRepository;
-        this.enrollmentRepository = enrollmentRepository;
     }
 
-    public List<Course> findAll() {
+    public List<Course> getAllCourses() {
         return courseRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    public List<Course> findAllByTitle() {
-        return courseRepository.findAllByOrderByTitleAsc();
-    }
-
-    public Course findById(UUID id) {
+    public Course getCourse(String id) {
         return courseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+            .orElseThrow(() -> new IllegalArgumentException("Course not found"));
     }
 
-    @Transactional
-    public Course create(Course course) {
+    public Course createCourse(CourseRequest req) {
+        Course course = new Course();
+        applyRequest(course, req);
         return courseRepository.save(course);
     }
 
-    @Transactional
-    public Course update(UUID id, Course updates) {
-        Course existing = findById(id);
-        if (updates.getTitle() != null) existing.setTitle(updates.getTitle());
-        if (updates.getDescription() != null) existing.setDescription(updates.getDescription());
-        if (updates.getCoverUrl() != null) existing.setCoverUrl(updates.getCoverUrl());
-        if (updates.getPrice() != null) existing.setPrice(updates.getPrice());
-        return courseRepository.save(existing);
+    public Course updateCourse(String id, CourseRequest req) {
+        Course course = getCourse(id);
+        applyRequest(course, req);
+        return courseRepository.save(course);
     }
 
-    @Transactional
-    public void delete(UUID id) {
-        Course existing = findById(id);
-        // cascade-style cleanup: remove lessons & enrollments tied to the course
-        lessonRepository.deleteByCourseId(existing.getId());
-        enrollmentRepository.findByCourseId(existing.getId())
-                .forEach(e -> enrollmentRepository.deleteById(e.getId()));
-        courseRepository.delete(existing);
+    public void deleteCourse(String id) {
+        courseRepository.deleteById(id);
+    }
+
+    private void applyRequest(Course course, CourseRequest req) {
+        if (req.getTitle() != null) course.setTitle(req.getTitle());
+        if (req.getDescription() != null) course.setDescription(req.getDescription());
+        if (req.getPrice() != null) course.setPrice(req.getPrice());
+        if (req.getDurationHours() != null) course.setDurationHours(req.getDurationHours());
+        if (req.getLevel() != null) course.setLevel(req.getLevel());
+        if (req.getThumbnailUrl() != null) course.setThumbnailUrl(req.getThumbnailUrl());
+        if (req.getFocuses() != null) course.setFocuses(req.getFocuses());
+        if (req.getOutcome() != null) course.setOutcome(req.getOutcome());
+        if (req.getActive() != null) course.setActive(req.getActive());
     }
 }

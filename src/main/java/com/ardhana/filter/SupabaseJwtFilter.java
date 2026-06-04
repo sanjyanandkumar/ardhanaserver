@@ -26,9 +26,19 @@ public class SupabaseJwtFilter extends OncePerRequestFilter {
 
     private static final String JWKS_URL =
         "https://uiiqatykujuqsnhgvzne.supabase.co/auth/v1/.well-known/jwks.json";
-
     private static final String ISSUER =
         "https://uiiqatykujuqsnhgvzne.supabase.co/auth/v1";
+
+    private final JwkProvider jwkProvider;
+
+    public SupabaseJwtFilter() throws Exception {
+        this.jwkProvider = new UrlJwkProvider(new URL(JWKS_URL));
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getRequestURI().startsWith("/h2-console");
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -37,7 +47,6 @@ public class SupabaseJwtFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -45,16 +54,12 @@ public class SupabaseJwtFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
         try {
-            // 1. Decode header to get key ID (kid)
             DecodedJWT unverified = JWT.decode(token);
             String kid = unverified.getKeyId();
 
-            // 2. Fetch matching public key from Supabase JWKS endpoint
-            JwkProvider provider = new UrlJwkProvider(new URL(JWKS_URL));
-            Jwk jwk = provider.get(kid);
+            Jwk jwk = jwkProvider.get(kid);
             ECPublicKey publicKey = (ECPublicKey) jwk.getPublicKey();
 
-            // 3. Verify token using ES256 + public key
             DecodedJWT jwt = JWT.require(Algorithm.ECDSA256(publicKey, null))
                     .withIssuer(ISSUER)
                     .acceptLeeway(10)
@@ -63,15 +68,12 @@ public class SupabaseJwtFilter extends OncePerRequestFilter {
 
             String uid = jwt.getSubject();
             String role = jwt.getClaim("role").asString();
-
             System.out.println(">>> JWT valid — uid: " + uid + ", role: " + role);
 
             UsernamePasswordAuthenticationToken auth =
                 new UsernamePasswordAuthenticationToken(
                     uid, null,
-                    List.of(new SimpleGrantedAuthority(
-                        "ROLE_" + (role != null ? role.toUpperCase() : "USER")
-                    ))
+                    List.of(new SimpleGrantedAuthority("ROLE_AUTHENTICATED"))
                 );
             SecurityContextHolder.getContext().setAuthentication(auth);
 

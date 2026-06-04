@@ -1,6 +1,8 @@
 package com.ardhana.controller;
 
-import org.springframework.security.core.Authentication;
+import java.security.Principal;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,15 +33,25 @@ public class AuthController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<ProfileResponse> getProfile(Authentication authentication) {
-        String supabaseUid = (String) authentication.getPrincipal();
-        ProfileResponse response = authService.getProfile(supabaseUid);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getProfile(Principal principal) {
+        return authService.getProfile(principal.getName())
+            .<ResponseEntity<?>>map(ResponseEntity::ok)
+            .orElse(ResponseEntity.status(404).body(Map.of("message", "Profile not found")));
     }
-
+    
     @PostMapping("/signout")
     public ResponseEntity<Void> signOut() {
         // Supabase handles token invalidation — Java is stateless, nothing to clear
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/admin/seed-profile")
+    public ResponseEntity<?> seedProfile(@RequestBody RegisterRequest request) {
+        try {
+            ProfileResponse profile = authService.register(request);
+            return ResponseEntity.ok(profile);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("message", e.getMessage()));
+        }
     }
 }

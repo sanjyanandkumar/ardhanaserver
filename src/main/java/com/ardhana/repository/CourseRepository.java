@@ -1,13 +1,14 @@
 package com.ardhana.repository;
 
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import com.ardhana.model.Course;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.util.Optional;
 
-public interface CourseRepository extends JpaRepository<Course, UUID> {
+@Repository
+public interface CourseRepository extends JpaRepository<Course, String> {
     List<Course> findAllByOrderByCreatedAtDesc();
-    List<Course> findAllByOrderByTitleAsc();
+    List<Course> findByActiveOrderByCreatedAtDesc(Boolean active);
+    Optional<Course> findByTitle(String title);
 }

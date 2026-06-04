@@ -1,8 +1,6 @@
 package com.ardhana.controller;
 
 import java.util.List;
-import java.util.UUID;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.ardhana.model.Enrollment;
 import com.ardhana.service.EnrollmentService;
 
@@ -27,14 +24,15 @@ public class EnrollmentController {
     }
 
     @GetMapping
-    public List<Enrollment> list(@RequestParam(value = "studentId", required = false) UUID studentId,
-                                 @RequestParam(value = "courseId", required = false) UUID courseId) {
+    public List<Enrollment> list(
+            @RequestParam(value = "studentId", required = false) String studentId,
+            @RequestParam(value = "courseId", required = false) String courseId) {
         if (studentId != null) return enrollmentService.findByStudent(studentId);
         if (courseId != null) return enrollmentService.findByCourse(courseId);
         return List.of();
     }
 
-    public record EnrollRequest(UUID courseId, UUID studentId) {}
+    public record EnrollRequest(String courseId, String studentId) {}
 
     @PostMapping
     public Enrollment enroll(@RequestBody EnrollRequest req) {
@@ -42,7 +40,7 @@ public class EnrollmentController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> unenroll(@PathVariable UUID id) {
+    public ResponseEntity<Void> unenroll(@PathVariable String id) {
         enrollmentService.unenroll(id);
         return ResponseEntity.noContent().build();
     }

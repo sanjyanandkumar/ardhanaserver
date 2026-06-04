@@ -13,11 +13,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = {
-    "http://localhost:8080",
-    "http://localhost:5173",
-    "http://localhost:3000"
-})
 public class AdminController {
 
     private final AdminService adminService;

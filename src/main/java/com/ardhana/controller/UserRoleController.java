@@ -2,14 +2,12 @@ package com.ardhana.controller;
 
 import com.ardhana.dto.UserRoleDto;
 import com.ardhana.model.AppRole;
-import com.ardhana.model.UserRoleProjection;
 import com.ardhana.service.UserRoleService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/user-roles")
@@ -29,17 +27,7 @@ public class UserRoleController {
     @GetMapping
     public ResponseEntity<List<UserRoleDto>> listByUser(@RequestParam String userId) {
         System.out.println(">>> Controller listByUser: " + userId);
-
-        List<UserRoleDto> roles = userRoleService.findByUserId(UUID.fromString(userId))
-            .stream()
-            .map(r -> new UserRoleDto(
-                r.getId(),
-                r.getUserId(),
-                r.getRole(),
-                r.getCreatedAt()
-            ))
-            .collect(Collectors.toList());
-
+        List<UserRoleDto> roles = userRoleService.findByUserId(UUID.fromString(userId));
         System.out.println(">>> Controller returning roles: " + roles.size());
         return ResponseEntity.ok(roles);
     }
@@ -57,16 +45,11 @@ public class UserRoleController {
 
     @PostMapping
     public ResponseEntity<UserRoleDto> assign(@RequestBody UserRoleDto request) {
-        var saved = userRoleService.assign(
+        UserRoleDto saved = userRoleService.assign(
             request.getUserId(),
             AppRole.valueOf(request.getRole())
         );
-        return ResponseEntity.ok(new UserRoleDto(
-            saved.getId(),
-            saved.getUserId(),
-            saved.getRole().name(),
-            saved.getCreatedAt()
-        ));
+        return ResponseEntity.ok(saved);  // ← return directly, no .name() needed
     }
 
     @DeleteMapping("/{id}")
