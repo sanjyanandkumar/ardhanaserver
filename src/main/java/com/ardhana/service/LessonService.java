@@ -21,7 +21,9 @@ public class LessonService {
     }
 
     public List<Lesson> findByCourse(UUID courseId) {
-        return lessonRepository.findByCourseIdOrderByPositionAsc(courseId);
+    	System.out.println(">>> Lessons query for courseId: " + courseId);
+    	System.out.println(">>> All lessons in DB: " + lessonRepository.findAll().size());
+    	return lessonRepository.findByCourseIdOrderByPositionAsc(courseId);
     }
 
     public Lesson findById(UUID id) {

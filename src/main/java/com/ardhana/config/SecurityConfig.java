@@ -41,6 +41,8 @@ public class SecurityConfig {
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/courses/**").permitAll()
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/schools/**").permitAll()
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/schools/students/all").authenticated()
+            	    .requestMatchers("/api/lesson-attachments/**").authenticated()
+            	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/lessons/**").permitAll()
             	    .requestMatchers("/api/my-courses/**").authenticated()
             	    .requestMatchers("/api/admin/**").authenticated()
             	    .anyRequest().authenticated()

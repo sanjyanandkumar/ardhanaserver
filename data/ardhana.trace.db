@@ -4,3 +4,15 @@ select e1_0.id,e1_0.course_id,e1_0.enrolled_at,e1_0.student_id from enrollments 
 2026-05-28 14:16:42.088141+05:30 jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "LESSONS" not found; SQL statement:
 select l1_0.id,l1_0.content,l1_0.course_id,l1_0.created_at,l1_0.position,l1_0.title from lessons l1_0 where l1_0.course_id=? order by l1_0.position [42102-240]
+2026-06-05 22:01:23.977881+05:30 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "LESSON_PROGRESS" not found; SQL statement:
+select lp1_0.id,lp1_0.completed,lp1_0.lesson_id,lp1_0.note,lp1_0.student_id,lp1_0.updated_at,lp1_0.updated_by from lesson_progress lp1_0 where lp1_0.student_id=? and lp1_0.lesson_id in (?) [42102-240]
+2026-06-05 22:01:29.441931+05:30 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "LESSON_PROGRESS" not found; SQL statement:
+select lp1_0.id,lp1_0.completed,lp1_0.lesson_id,lp1_0.note,lp1_0.student_id,lp1_0.updated_at,lp1_0.updated_by from lesson_progress lp1_0 where lp1_0.lesson_id=? and lp1_0.student_id=? [42102-240]
+2026-06-05 22:01:29.563882+05:30 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "LESSON_PROGRESS" not found; SQL statement:
+select lp1_0.id,lp1_0.completed,lp1_0.lesson_id,lp1_0.note,lp1_0.student_id,lp1_0.updated_at,lp1_0.updated_by from lesson_progress lp1_0 where lp1_0.lesson_id=? and lp1_0.student_id=? [42102-240]
+2026-06-05 22:07:40.667440+05:30 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in SQL statement "CREATE TABLE IF NOT EXISTS lesson_progress ( id UUID PRIMARY KEY [*]DEFAULT RANDOM_UUID(), lesson_id UUID NOT NULL, student_id UUID NOT NULL, completed BOOLEAN NOT NULL DEFAULT FALSE, note TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_by UUID, CONSTRAINT uq_lesson_progress UNIQUE (lesson_id, student_id) )"; expected "HASH, CONSTRAINT, COMMENT, UNIQUE, NOT NULL, CHECK, REFERENCES, ,, )"; SQL statement:
+CREATE TABLE IF NOT EXISTS lesson_progress ( id UUID PRIMARY KEY DEFAULT RANDOM_UUID(), lesson_id UUID NOT NULL, student_id UUID NOT NULL, completed BOOLEAN NOT NULL DEFAULT FALSE, note TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_by UUID, CONSTRAINT uq_lesson_progress UNIQUE (lesson_id, student_id) ) [42001-240]

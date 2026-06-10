@@ -40,41 +40,48 @@ public class StudentCourseService {
         UUID studentUuid = UUID.fromString(studentId);
 
         for (Enrollment enrollment : enrollments) {
+            UUID courseUuid;
+            try {
+                courseUuid = UUID.fromString(enrollment.getCourseId());
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+
             courseRepository.findById(enrollment.getCourseId()).ifPresent(course -> {
                 List<Lesson> lessons = lessonRepository
-                    .findByCourseIdOrderByPosition(course.getId());
+                    .findByCourseIdOrderByPosition(courseUuid); // ← pass UUID not String
 
                 List<UUID> lessonUuids = new ArrayList<>();
                 for (Lesson l : lessons) {
                     lessonUuids.add(l.getId());
                 }
-                
-                List<LessonProgress> progressList = lessonProgressRepository
-                    .findByStudentIdAndLessonIdIn(studentUuid, lessonUuids);
 
-                Map<String, LessonProgress> progressMap = progressList.stream()
-                    .collect(Collectors.toMap(
-                        p -> p.getLessonId().toString(),
-                        p -> p
-                    ));
+                List<LessonProgress> progressList = lessonUuids.isEmpty()
+                    ? new ArrayList<>()
+                    : lessonProgressRepository.findByStudentIdAndLessonIdIn(studentUuid, lessonUuids);
 
-                List<MyCourseResponse.LessonProgressDetail> lessonDetails = lessons.stream()
-                    .map(l -> {
-                        LessonProgress p = progressMap.get(l.getId());
-                        MyCourseResponse.LessonProgressDetail detail =
-                            new MyCourseResponse.LessonProgressDetail();
-                        detail.setLessonId(l.getId());
-                        detail.setTitle(l.getTitle());
-                        detail.setPosition(l.getPosition());
-                        detail.setCompleted(p != null && p.isCompleted());
-                        detail.setNote(p != null ? p.getNote() : null);
-                        return detail;
-                    })
-                    .collect(Collectors.toList());
+                Map<UUID, LessonProgress> progressMap = new java.util.HashMap<>();
+                for (LessonProgress p : progressList) {
+                    progressMap.put(p.getLessonId(), p);
+                }
 
-                long completed = lessonDetails.stream()
-                    .filter(MyCourseResponse.LessonProgressDetail::isCompleted)
-                    .count();
+                List<MyCourseResponse.LessonProgressDetail> lessonDetails = new ArrayList<>();
+                for (Lesson l : lessons) {
+                    LessonProgress p = progressMap.get(l.getId());
+                    MyCourseResponse.LessonProgressDetail detail =
+                        new MyCourseResponse.LessonProgressDetail();
+                    detail.setLessonId(l.getId().toString());
+                    detail.setTitle(l.getTitle());
+                    detail.setPosition(l.getPosition());
+                    detail.setCompleted(p != null && p.isCompleted());
+                    detail.setNote(p != null ? p.getNote() : null);
+                    lessonDetails.add(detail);
+                }
+
+                long completed = 0;
+                for (MyCourseResponse.LessonProgressDetail d : lessonDetails) {
+                    if (d.isCompleted()) completed++;
+                }
 
                 MyCourseResponse response = new MyCourseResponse();
                 response.setCourseId(course.getId());

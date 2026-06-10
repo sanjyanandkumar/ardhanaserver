@@ -112,3 +112,32 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id);
+
+CREATE TABLE IF NOT EXISTS lesson_progress (
+    id UUID DEFAULT RANDOM_UUID() NOT NULL,
+    lesson_id UUID NOT NULL,
+    student_id UUID NOT NULL,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    note TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by UUID,
+    CONSTRAINT pk_lesson_progress PRIMARY KEY (id),
+    CONSTRAINT uq_lesson_progress UNIQUE (lesson_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_student_id ON lesson_progress (student_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_lesson_id ON lesson_progress (lesson_id);
+
+ALTER TABLE lesson_progress ADD COLUMN IF NOT EXISTS pdf_url VARCHAR(500);
+
+CREATE TABLE IF NOT EXISTS lesson_attachments (
+    id UUID DEFAULT RANDOM_UUID() NOT NULL,
+    lesson_id UUID NOT NULL,
+    student_id UUID NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_type VARCHAR(100) NOT NULL,
+    file_data BLOB NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_lesson_attachments PRIMARY KEY (id),
+    CONSTRAINT uq_lesson_attachment UNIQUE (lesson_id, student_id)
+);
