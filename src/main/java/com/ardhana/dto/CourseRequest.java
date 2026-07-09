@@ -4,9 +4,13 @@ import java.math.BigDecimal;
 
 public class CourseRequest {
     private String title;
+    private String name;
     private String description;
-    private BigDecimal price;
-    private Integer durationHours;
+    private BigDecimal priceInr;
+    private BigDecimal priceUsd;
+    private BigDecimal priceEur;
+    private BigDecimal priceGbp;
+    private Integer sessions;
     private String level;
     private String thumbnailUrl;
     private String focuses; // comma-separated
@@ -15,12 +19,20 @@ public class CourseRequest {
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-    public BigDecimal getPrice() { return price; }
-    public void setPrice(BigDecimal price) { this.price = price; }
-    public Integer getDurationHours() { return durationHours; }
-    public void setDurationHours(Integer durationHours) { this.durationHours = durationHours; }
+    public BigDecimal getPriceInr() { return priceInr; }
+    public void setPriceInr(BigDecimal priceInr) { this.priceInr = priceInr; }
+    public BigDecimal getPriceUsd() { return priceUsd; }
+    public void setPriceUsd(BigDecimal priceUsd) { this.priceUsd = priceUsd; }
+    public BigDecimal getPriceEur() { return priceEur; }
+    public void setPriceEur(BigDecimal priceEur) { this.priceEur = priceEur; }
+    public BigDecimal getPriceGbp() { return priceGbp; }
+    public void setPriceGbp(BigDecimal priceGbp) { this.priceGbp = priceGbp; }
+    public Integer getSessions() { return sessions; }
+    public void setSessions(Integer sessions) { this.sessions = sessions; }
     public String getLevel() { return level; }
     public void setLevel(String level) { this.level = level; }
     public String getThumbnailUrl() { return thumbnailUrl; }

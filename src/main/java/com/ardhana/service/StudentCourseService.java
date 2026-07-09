@@ -86,9 +86,10 @@ public class StudentCourseService {
                 MyCourseResponse response = new MyCourseResponse();
                 response.setCourseId(course.getId());
                 response.setTitle(course.getTitle());
+                response.setName(course.getName());
                 response.setDescription(course.getDescription());
                 response.setLevel(course.getLevel());
-                response.setDurationHours(course.getDurationHours());
+                response.setSessions(course.getSessions());
                 response.setCompletedLessons((int) completed);
                 response.setTotalLessons(lessons.size());
                 response.setLessons(lessonDetails);

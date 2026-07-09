@@ -11,6 +11,7 @@ import com.ardhana.model.UserProfile;
 @Repository
 public interface UserProfileRepository extends JpaRepository<UserProfile, String> {
     Optional<UserProfile> findBySupabaseUid(String supabaseUid);
+    Optional<UserProfile> findByEmail(String email);
     boolean existsByEmail(String email);
     boolean existsByMobile(String mobile);
     List<UserProfile> findBySchoolId(String schoolId);

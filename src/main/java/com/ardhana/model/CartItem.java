@@ -37,6 +37,9 @@ public class CartItem {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price = BigDecimal.ZERO;
 
+    @Column(nullable = false, length = 3)
+    private String currency = "INR";
+
     @Column(nullable = false)
     private int quantity = 1;
 
@@ -74,6 +77,9 @@ public class CartItem {
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
+
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
 
     public int getQuantity() { return quantity; }
     public void setQuantity(int quantity) { this.quantity = quantity; }

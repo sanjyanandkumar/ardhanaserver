@@ -16,6 +16,7 @@ public class OrderResponse {
     private UUID orderId;
     private OrderStatus status;
     private BigDecimal totalAmount;
+    private String currency;
     private List<OrderItemResponse> items;
     private Instant createdAt;
 
@@ -26,6 +27,7 @@ public class OrderResponse {
         private UUID pillarId;
         private String pillarName;
         private BigDecimal price;
+        private String currency;
         private Integer quantity;
         private BigDecimal subtotal;
     }

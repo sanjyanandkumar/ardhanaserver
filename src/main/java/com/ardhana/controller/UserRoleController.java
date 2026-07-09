@@ -4,9 +4,12 @@ import com.ardhana.dto.UserRoleDto;
 import com.ardhana.model.AppRole;
 import com.ardhana.service.UserRoleService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -44,17 +47,50 @@ public class UserRoleController {
     }
 
     @PostMapping
-    public ResponseEntity<UserRoleDto> assign(@RequestBody UserRoleDto request) {
+    public ResponseEntity<?> assign(@RequestBody UserRoleDto request) {
+        String callerId = requireAuthenticated();
+        if (callerId == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "Authentication required"));
+        }
+
+        // Bootstrap exception: if no admin exists yet, anyone can grant the
+        // first one (otherwise there'd be no way to ever create an admin).
+        // Once an admin exists, only an existing admin may assign roles.
+        boolean callerIsAdmin = userRoleService.hasRole(UUID.fromString(callerId), AppRole.admin);
+        if (!callerIsAdmin && userRoleService.hasAnyAdmin()) {
+            return ResponseEntity.status(403).body(Map.of("message", "Admin access required"));
+        }
+
         UserRoleDto saved = userRoleService.assign(
             request.getUserId(),
             AppRole.valueOf(request.getRole())
         );
-        return ResponseEntity.ok(saved);  // ← return directly, no .name() needed
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> revoke(@PathVariable UUID id) {
+    public ResponseEntity<?> revoke(@PathVariable UUID id) {
+        String callerId = requireAuthenticated();
+        if (callerId == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "Authentication required"));
+        }
+
+        boolean callerIsAdmin = userRoleService.hasRole(UUID.fromString(callerId), AppRole.admin);
+        if (!callerIsAdmin) {
+            return ResponseEntity.status(403).body(Map.of("message", "Admin access required"));
+        }
+
         userRoleService.revoke(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Returns the authenticated caller's user id, or null if unauthenticated. */
+    private String requireAuthenticated() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
+        }
+        return (String) authentication.getPrincipal();
     }
 }

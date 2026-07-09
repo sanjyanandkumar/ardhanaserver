@@ -24,6 +24,7 @@ public class CheckoutRequest {
         private UUID pillarId;
         private String pillarName;
         private BigDecimal price;
+        private String currency;
         private Integer quantity;
     }
 }

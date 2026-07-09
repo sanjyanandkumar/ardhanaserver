@@ -1,5 +1,6 @@
 package com.ardhana.repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,4 +12,6 @@ import com.ardhana.model.UserRole;
 @Repository
 public interface UserRoleRepository extends JpaRepository<UserRole, UUID> {
     Optional<UserRole> findFirstByUserId(UUID userId);
+    List<UserRole> findAllByUserId(UUID userId);
+    boolean existsByRole(com.ardhana.model.AppRole role);
 }

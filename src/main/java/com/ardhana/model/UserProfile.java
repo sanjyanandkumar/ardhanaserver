@@ -28,7 +28,13 @@ public class UserProfile {
 
     @Column(name = "school_id")
     private String schoolId;
-    
+
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
+    @Column(name = "country", length = 2)
+    private String country; // ISO 3166-1 alpha-2, e.g. "IN", "US"
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -65,7 +71,13 @@ public class UserProfile {
 
     public String getSchoolId() { return schoolId; }
     public void setSchoolId(String schoolId) { this.schoolId = schoolId; }
-    
+
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getCountry() { return country; }
+    public void setCountry(String country) { this.country = country; }
+
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

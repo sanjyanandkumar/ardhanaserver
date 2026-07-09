@@ -10,10 +10,10 @@ public class UserRole {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)  // ← generates UUID automatically
-    @Column(name = "id", columnDefinition = "uuid")
+    @Column(name = "id")
     private UUID id;
 
-    @Column(name = "user_id", columnDefinition = "uuid", nullable = false)
+    @Column(name = "user_id", nullable = false)
     private UUID userId;
 
     @Enumerated(EnumType.STRING)

@@ -5,9 +5,10 @@ import java.util.List;
 public class MyCourseResponse {
     private String courseId;
     private String title;
+    private String name;
     private String description;
     private String level;
-    private Integer durationHours;
+    private Integer sessions;
     private int completedLessons;
     private int totalLessons;
     private List<LessonProgressDetail> lessons;
@@ -16,12 +17,14 @@ public class MyCourseResponse {
     public void setCourseId(String courseId) { this.courseId = courseId; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public String getLevel() { return level; }
     public void setLevel(String level) { this.level = level; }
-    public Integer getDurationHours() { return durationHours; }
-    public void setDurationHours(Integer durationHours) { this.durationHours = durationHours; }
+    public Integer getSessions() { return sessions; }
+    public void setSessions(Integer sessions) { this.sessions = sessions; }
     public int getCompletedLessons() { return completedLessons; }
     public void setCompletedLessons(int completedLessons) { this.completedLessons = completedLessons; }
     public int getTotalLessons() { return totalLessons; }

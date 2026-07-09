@@ -42,9 +42,13 @@ public class CourseService {
 
     private void applyRequest(Course course, CourseRequest req) {
         if (req.getTitle() != null) course.setTitle(req.getTitle());
+        if (req.getName() != null) course.setName(req.getName());
         if (req.getDescription() != null) course.setDescription(req.getDescription());
-        if (req.getPrice() != null) course.setPrice(req.getPrice());
-        if (req.getDurationHours() != null) course.setDurationHours(req.getDurationHours());
+        if (req.getPriceInr() != null) course.setPriceInr(req.getPriceInr());
+        if (req.getPriceUsd() != null) course.setPriceUsd(req.getPriceUsd());
+        if (req.getPriceEur() != null) course.setPriceEur(req.getPriceEur());
+        if (req.getPriceGbp() != null) course.setPriceGbp(req.getPriceGbp());
+        if (req.getSessions() != null) course.setSessions(req.getSessions());
         if (req.getLevel() != null) course.setLevel(req.getLevel());
         if (req.getThumbnailUrl() != null) course.setThumbnailUrl(req.getThumbnailUrl());
         if (req.getFocuses() != null) course.setFocuses(req.getFocuses());

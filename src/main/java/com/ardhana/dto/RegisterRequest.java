@@ -20,8 +20,13 @@ public class RegisterRequest {
     )
     private String mobile;
 
-    @NotBlank(message = "Supabase UID is required")
-    private String supabaseUid;
+    @NotBlank(message = "Password is required")
+    @Size(min = 6, max = 72, message = "Password must be 6-72 characters")
+    private String password;
+
+    @NotBlank(message = "Country is required")
+    @Size(min = 2, max = 2, message = "Country must be a 2-letter code")
+    private String country;
 
     // Getters and setters
     public String getFullName() { return fullName; }
@@ -30,6 +35,8 @@ public class RegisterRequest {
     public void setEmail(String email) { this.email = email; }
     public String getMobile() { return mobile; }
     public void setMobile(String mobile) { this.mobile = mobile; }
-    public String getSupabaseUid() { return supabaseUid; }
-    public void setSupabaseUid(String supabaseUid) { this.supabaseUid = supabaseUid; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+    public String getCountry() { return country; }
+    public void setCountry(String country) { this.country = country; }
 }

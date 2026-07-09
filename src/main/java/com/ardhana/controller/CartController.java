@@ -33,11 +33,11 @@ public class CartController {
         return cartService.findByUser(userId);
     }
 
-    public record AddRequest(UUID userId, String pillarKey, String pillarName, BigDecimal price) {}
+    public record AddRequest(UUID userId, String pillarKey, String pillarName, BigDecimal price, String currency) {}
 
     @PostMapping
     public CartItem add(@RequestBody AddRequest req) {
-        return cartService.addOrIncrement(req.userId(), req.pillarKey(), req.pillarName(), req.price());
+        return cartService.addOrIncrement(req.userId(), req.pillarKey(), req.pillarName(), req.price(), req.currency());
     }
 
     public record QuantityRequest(int quantity) {}
