@@ -1,5 +1,6 @@
 package com.ardhana.controller;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -13,12 +14,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ardhana.dto.CheckoutInitResponse;
 import com.ardhana.dto.CheckoutRequest;
 import com.ardhana.dto.OrderResponse;
 import com.ardhana.dto.PaymentVerificationRequest;
+import com.ardhana.model.AppRole;
 import com.ardhana.service.OrderService;
+import com.ardhana.service.UserRoleService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderController {
 
     private final OrderService orderService;
+    private final UserRoleService userRoleService;
 
     /**
      * Creates a PENDING order and a matching Razorpay order. The frontend
@@ -55,6 +60,24 @@ public class OrderController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<OrderResponse>> getUserOrders(@PathVariable UUID userId) {
         return ResponseEntity.ok(orderService.getOrdersByUser(userId));
+    }
+
+    /** Admin: every course-purchase order across every buyer, newest first. */
+    @GetMapping
+    public ResponseEntity<List<OrderResponse>> getAllOrders(Principal principal) {
+        requireAdmin(principal);
+        return ResponseEntity.ok(orderService.getAllOrders());
+    }
+
+    private void requireAdmin(Principal principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        boolean isAdmin = userRoleService.hasRole(UUID.fromString(principal.getName()), AppRole.admin);
+        if (!isAdmin) {
+            log.warn("Non-admin user {} attempted to access all-orders admin endpoint", principal.getName());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
+        }
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -22,6 +22,7 @@ import com.ardhana.model.OrderStatus;
 import com.ardhana.repository.CourseRepository;
 import com.ardhana.repository.EnrollmentRepository;
 import com.ardhana.repository.OrderRepository;
+import com.ardhana.repository.UserProfileRepository;
 import com.razorpay.RazorpayException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class OrderService {
     private final EnrollmentRepository enrollmentRepository;
     private final CourseRepository courseRepository;
     private final RazorpayService razorpayService;
+    private final UserProfileRepository userProfileRepository;
 
     /**
      * Testing-only escape hatch: when true, checkout never talks to
@@ -49,11 +51,13 @@ public class OrderService {
     public OrderService(OrderRepository orderRepository,
             EnrollmentRepository enrollmentRepository,
             CourseRepository courseRepository,
-            RazorpayService razorpayService) {
+            RazorpayService razorpayService,
+            UserProfileRepository userProfileRepository) {
         this.orderRepository = orderRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.courseRepository = courseRepository;
         this.razorpayService = razorpayService;
+        this.userProfileRepository = userProfileRepository;
     }
 
     /**
@@ -249,6 +253,22 @@ public class OrderService {
     public List<OrderResponse> getOrdersByUser(UUID userId) {
         return orderRepository.findByUserIdOrderByCreatedAtDesc(userId)
             .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    /** Admin: every course-purchase order across every buyer, newest first. */
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAllByOrderByCreatedAtDesc()
+            .stream().map(this::toResponseWithBuyer).collect(Collectors.toList());
+    }
+
+    private OrderResponse toResponseWithBuyer(Order order) {
+        OrderResponse response = toResponse(order);
+        response.setBuyerId(order.getUserId());
+        userProfileRepository.findById(order.getUserId().toString()).ifPresent(profile -> {
+            response.setBuyerName(profile.getFullName());
+            response.setBuyerEmail(profile.getEmail());
+        });
+        return response;
     }
 
     private void createEnrollmentsForOrder(Order order) {

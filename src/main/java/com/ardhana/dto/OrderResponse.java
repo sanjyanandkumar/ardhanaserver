@@ -20,6 +20,13 @@ public class OrderResponse {
     private List<OrderItemResponse> items;
     private Instant createdAt;
 
+    // Only populated on the admin "all orders" listing (OrderService#getAllOrders) —
+    // null on the buyer-scoped responses (checkout/verify/user history), which
+    // already imply who the buyer is via the authenticated caller.
+    private UUID buyerId;
+    private String buyerName;
+    private String buyerEmail;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

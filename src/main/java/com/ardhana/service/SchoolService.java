@@ -1,11 +1,14 @@
 package com.ardhana.service;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import com.ardhana.dto.SchoolRequest;
+import com.ardhana.model.AppRole;
 import com.ardhana.model.School;
 import com.ardhana.model.UserProfile;
 import com.ardhana.repository.SchoolRepository;
@@ -82,10 +85,18 @@ public class SchoolService {
         if (req.getActive() != null) school.setActive(req.getActive());
     }
     
+    /** Unassigned users eligible to add to a school — role=student only, not admins/teachers. */
     public List<UserProfile> getAllStudents() {
+        Set<String> studentUserIds = userRoleRepository.findAllByRole(AppRole.student)
+            .stream()
+            .map(role -> role.getUserId().toString())
+            .collect(Collectors.toSet());
+
         return userProfileRepository.findAll()
             .stream()
-            .filter(u -> u.getSchoolId() == null && u.getSupabaseUid() != null)
-            .collect(java.util.stream.Collectors.toList());
+            .filter(u -> u.getSchoolId() == null
+                && u.getSupabaseUid() != null
+                && studentUserIds.contains(u.getSupabaseUid()))
+            .collect(Collectors.toList());
     }
 }

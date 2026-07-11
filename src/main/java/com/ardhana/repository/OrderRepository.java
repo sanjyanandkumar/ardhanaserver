@@ -13,4 +13,5 @@ import com.ardhana.model.Order;
 public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
     Optional<Order> findByRazorpayOrderId(String razorpayOrderId);
+    List<Order> findAllByOrderByCreatedAtDesc();
 }
