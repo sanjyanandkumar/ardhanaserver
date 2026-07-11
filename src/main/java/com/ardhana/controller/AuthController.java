@@ -1,23 +1,35 @@
 package com.ardhana.controller;
 
+import java.io.IOException;
 import java.security.Principal;
 import java.util.Map;
+import java.util.Set;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.ardhana.dto.AuthResponse;
 import com.ardhana.dto.LoginRequest;
 import com.ardhana.dto.ProfileResponse;
 import com.ardhana.dto.RegisterRequest;
 import com.ardhana.dto.SendOtpRequest;
+import com.ardhana.dto.UpdateProfileRequest;
 import com.ardhana.dto.VerifyOtpRequest;
 import com.ardhana.model.PhoneVerification;
+import com.ardhana.model.ProfilePhoto;
 import com.ardhana.repository.PhoneVerificationRepository;
+import com.ardhana.repository.ProfilePhotoRepository;
 import com.ardhana.service.AuthService;
 import com.ardhana.service.SmsService;
 import com.ardhana.util.PhoneNumbers;
@@ -30,15 +42,22 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    // image/jpeg, image/png, image/webp — anything else is rejected below.
+    private static final Set<String> ALLOWED_PHOTO_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final long MAX_PHOTO_BYTES = 5L * 1024 * 1024; // 5MB
+
     private final AuthService authService;
     private final SmsService smsService;
     private final PhoneVerificationRepository phoneVerificationRepository;
+    private final ProfilePhotoRepository profilePhotoRepository;
 
     public AuthController(AuthService authService, SmsService smsService,
-                           PhoneVerificationRepository phoneVerificationRepository) {
+                           PhoneVerificationRepository phoneVerificationRepository,
+                           ProfilePhotoRepository profilePhotoRepository) {
         this.authService = authService;
         this.smsService = smsService;
         this.phoneVerificationRepository = phoneVerificationRepository;
+        this.profilePhotoRepository = profilePhotoRepository;
     }
 
     @PostMapping("/register")
@@ -96,6 +115,62 @@ public class AuthController {
         return authService.getProfile(principal.getName())
             .<ResponseEntity<?>>map(ResponseEntity::ok)
             .orElse(ResponseEntity.status(404).body(Map.of("message", "Profile not found")));
+    }
+
+    /** Updates the signed-in user's own name/country. */
+    @PutMapping("/profile")
+    public ResponseEntity<ProfileResponse> updateProfile(Principal principal,
+                                                           @Valid @RequestBody UpdateProfileRequest request) {
+        ProfileResponse response = authService.updateProfile(principal.getName(), request);
+        return ResponseEntity.ok(response);
+    }
+
+    /** Uploads (or replaces) the signed-in user's profile photo. */
+    @PostMapping("/profile/photo")
+    public ResponseEntity<?> uploadProfilePhoto(Principal principal,
+                                                 @RequestParam("file") MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "File is empty"));
+        }
+        if (!ALLOWED_PHOTO_TYPES.contains(file.getContentType())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Only JPEG, PNG, or WEBP images are allowed"));
+        }
+        if (file.getSize() > MAX_PHOTO_BYTES) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Image too large (max 5MB)"));
+        }
+
+        String userId = principal.getName();
+        ProfilePhoto photo = profilePhotoRepository.findById(userId).orElse(new ProfilePhoto());
+        photo.setUserId(userId);
+        photo.setFileName(file.getOriginalFilename());
+        photo.setContentType(file.getContentType());
+        photo.setFileData(file.getBytes());
+        profilePhotoRepository.save(photo);
+
+        log.info("Profile photo uploaded for user {} ({} bytes)", userId, file.getSize());
+        return ResponseEntity.ok(Map.of("avatarUrl", "/auth/profile/photo/" + userId));
+    }
+
+    /** Publicly servable so it can be used directly as an <img src>. */
+    @GetMapping("/profile/photo/{userId}")
+    public ResponseEntity<byte[]> getProfilePhoto(@PathVariable String userId) {
+        return profilePhotoRepository.findById(userId)
+            .map(photo -> ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=300")
+                .contentType(MediaType.parseMediaType(photo.getContentType()))
+                .body(photo.getFileData()))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Removes the signed-in user's profile photo. */
+    @DeleteMapping("/profile/photo")
+    public ResponseEntity<Void> deleteProfilePhoto(Principal principal) {
+        String userId = principal.getName();
+        if (profilePhotoRepository.existsById(userId)) {
+            profilePhotoRepository.deleteById(userId);
+            log.info("Profile photo removed for user {}", userId);
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/signout")

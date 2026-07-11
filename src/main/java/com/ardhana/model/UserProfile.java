@@ -35,6 +35,12 @@ public class UserProfile {
     @Column(name = "country", length = 2)
     private String country; // ISO 3166-1 alpha-2, e.g. "IN", "US"
 
+    // Short (~2-line) bio, editable from the profile page. Currently only
+    // shown in the UI for teachers, and used to populate the public
+    // "Meet Our Teachers" section on the landing page.
+    @Column(name = "bio", length = 280)
+    private String bio;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -77,6 +83,9 @@ public class UserProfile {
 
     public String getCountry() { return country; }
     public void setCountry(String country) { this.country = country; }
+
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

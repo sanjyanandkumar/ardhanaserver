@@ -1,6 +1,7 @@
 package com.ardhana.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -36,6 +37,22 @@ public class School {
     @Column(name = "active", nullable = false)
     private Boolean active = true;
 
+    // The current amount owed by this school (a one-off invoice the admin
+    // sets, e.g. a licensing/subscription fee). Null means nothing is due.
+    // Cleared back to null once SchoolPaymentService confirms a payment
+    // covering it — admin sets a new one for the next billing cycle.
+    @Column(name = "fee_amount")
+    private BigDecimal feeAmount;
+
+    @Column(name = "fee_currency", length = 3)
+    private String feeCurrency = "INR";
+
+    // References UserProfile.id for the login account created for this
+    // school (role=school) via SchoolAuthService. Null until an admin
+    // creates one.
+    @Column(name = "login_user_id")
+    private String loginUserId;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
@@ -70,6 +87,12 @@ public class School {
     public void setEmail(String email) { this.email = email; }
     public Boolean getActive() { return active; }
     public void setActive(Boolean active) { this.active = active; }
+    public BigDecimal getFeeAmount() { return feeAmount; }
+    public void setFeeAmount(BigDecimal feeAmount) { this.feeAmount = feeAmount; }
+    public String getFeeCurrency() { return feeCurrency; }
+    public void setFeeCurrency(String feeCurrency) { this.feeCurrency = feeCurrency; }
+    public String getLoginUserId() { return loginUserId; }
+    public void setLoginUserId(String loginUserId) { this.loginUserId = loginUserId; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

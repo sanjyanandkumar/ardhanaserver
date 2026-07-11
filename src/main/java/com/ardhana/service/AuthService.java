@@ -12,11 +12,13 @@ import com.ardhana.dto.AuthResponse;
 import com.ardhana.dto.LoginRequest;
 import com.ardhana.dto.ProfileResponse;
 import com.ardhana.dto.RegisterRequest;
+import com.ardhana.dto.UpdateProfileRequest;
 import com.ardhana.model.AppRole;
 import com.ardhana.model.PhoneVerification;
 import com.ardhana.model.UserProfile;
 import com.ardhana.model.UserRole;
 import com.ardhana.repository.PhoneVerificationRepository;
+import com.ardhana.repository.ProfilePhotoRepository;
 import com.ardhana.repository.UserProfileRepository;
 import com.ardhana.repository.UserRoleRepository;
 import com.ardhana.util.PhoneNumbers;
@@ -37,17 +39,20 @@ public class AuthService {
     private final UserProfileRepository userProfileRepository;
     private final UserRoleRepository userRoleRepository;
     private final PhoneVerificationRepository phoneVerificationRepository;
+    private final ProfilePhotoRepository profilePhotoRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(UserProfileRepository userProfileRepository,
                        UserRoleRepository userRoleRepository,
                        PhoneVerificationRepository phoneVerificationRepository,
+                       ProfilePhotoRepository profilePhotoRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService) {
         this.userProfileRepository = userProfileRepository;
         this.userRoleRepository = userRoleRepository;
         this.phoneVerificationRepository = phoneVerificationRepository;
+        this.profilePhotoRepository = profilePhotoRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -128,6 +133,29 @@ public class AuthService {
             .map(profile -> toProfileResponse(profile, roleFor(userId)));
     }
 
+    /** Updates the editable subset of a signed-in user's own profile. */
+    public ProfileResponse updateProfile(String userId, UpdateProfileRequest request) {
+        UserProfile profile = userProfileRepository.findById(userId)
+            .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
+
+        profile.setFullName(request.getFullName());
+        if (request.getCountry() != null && !request.getCountry().isBlank()) {
+            profile.setCountry(request.getCountry().toUpperCase());
+        }
+        // Omitted (null) means "leave unchanged" — the frontend only sends
+        // this for teachers, so it never accidentally wipes a non-teacher's
+        // (nonexistent) bio.
+        if (request.getBio() != null) {
+            String trimmed = request.getBio().trim();
+            profile.setBio(trimmed.isEmpty() ? null : trimmed);
+        }
+
+        userProfileRepository.save(profile);
+        log.info("Profile updated for user {}", userId);
+
+        return toProfileResponse(profile, roleFor(userId));
+    }
+
     private String roleFor(String userId) {
         return userRoleRepository.findFirstByUserId(UUID.fromString(userId))
             .map(ur -> ur.getRole().name().toLowerCase()) // "student", "admin", "teacher"
@@ -135,13 +163,18 @@ public class AuthService {
     }
 
     private ProfileResponse toProfileResponse(UserProfile profile, String role) {
+        String avatarUrl = profilePhotoRepository.existsById(profile.getId())
+            ? "/auth/profile/photo/" + profile.getId()
+            : null;
         return new ProfileResponse(
             profile.getSupabaseUid(),
             profile.getFullName(),
             profile.getEmail(),
             profile.getMobile(),
             role,
-            profile.getCountry()
+            profile.getCountry(),
+            avatarUrl,
+            profile.getBio()
         );
     }
 }

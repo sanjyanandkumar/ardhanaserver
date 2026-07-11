@@ -7,11 +7,13 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import com.ardhana.model.AppRole;
 import com.ardhana.model.UserRole;
 
 @Repository
 public interface UserRoleRepository extends JpaRepository<UserRole, UUID> {
     Optional<UserRole> findFirstByUserId(UUID userId);
     List<UserRole> findAllByUserId(UUID userId);
-    boolean existsByRole(com.ardhana.model.AppRole role);
+    boolean existsByRole(AppRole role);
+    List<UserRole> findAllByRole(AppRole role);
 }

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     school_id VARCHAR(36),
     password_hash VARCHAR(255),
     country VARCHAR(2),
+    bio VARCHAR(280),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -78,11 +79,31 @@ CREATE TABLE IF NOT EXISTS schools (
     phone VARCHAR(20),
     email VARCHAR(255),
     active BOOLEAN NOT NULL DEFAULT TRUE,
+    fee_amount DECIMAL(10, 2),
+    fee_currency VARCHAR(3) DEFAULT 'INR',
+    login_user_id VARCHAR(36),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_schools_name ON schools (name);
+
+-- School platform fee payments — one row per Razorpay Checkout attempt.
+CREATE TABLE IF NOT EXISTS school_payments (
+    id VARCHAR(36) PRIMARY KEY,
+    school_id VARCHAR(36) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'INR',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    razorpay_order_id VARCHAR(64),
+    razorpay_payment_id VARCHAR(64),
+    razorpay_signature VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    confirmed_at TIMESTAMP NULL
+);
+
+CREATE INDEX idx_school_payments_school ON school_payments (school_id);
+CREATE INDEX idx_school_payments_razorpay_order ON school_payments (razorpay_order_id);
 
 CREATE TABLE IF NOT EXISTS enrollments (
     id VARCHAR(36) PRIMARY KEY,
@@ -173,3 +194,72 @@ CREATE TABLE IF NOT EXISTS phone_verifications (
 );
 
 CREATE INDEX idx_phone_verifications_mobile ON phone_verifications (mobile);
+
+-- Profile photos, kept in their own table (like lesson_attachments) so the
+-- BLOB isn't loaded every time a profile row is fetched.
+CREATE TABLE IF NOT EXISTS profile_photos (
+    user_id VARCHAR(36) PRIMARY KEY,
+    file_name VARCHAR(255),
+    content_type VARCHAR(100) NOT NULL,
+    file_data LONGBLOB NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- One-off scheduled classes: a course taught at a school by a teacher on a
+-- specific date/time. Admin creates these; teachers see their own via /my.
+CREATE TABLE IF NOT EXISTS class_schedules (
+    id VARCHAR(36) PRIMARY KEY,
+    school_id VARCHAR(36) NOT NULL,
+    course_id VARCHAR(36) NOT NULL,
+    teacher_id VARCHAR(36) NOT NULL,
+    class_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    notes TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
+    status_reason TEXT,
+    status_updated_at TIMESTAMP NULL,
+    teacher_payout_id VARCHAR(36),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_class_schedules_school ON class_schedules (school_id);
+CREATE INDEX idx_class_schedules_teacher ON class_schedules (teacher_id);
+CREATE INDEX idx_class_schedules_date ON class_schedules (class_date);
+CREATE INDEX idx_class_schedules_status ON class_schedules (status);
+CREATE INDEX idx_class_schedules_payout ON class_schedules (teacher_payout_id);
+
+-- Teacher payments: per-teacher agreed rate + (teacher-entered-only) bank
+-- details for RazorpayX payouts.
+CREATE TABLE IF NOT EXISTS teacher_payout_profiles (
+    user_id VARCHAR(36) PRIMARY KEY,
+    rate_per_session DECIMAL(10, 2),
+    account_holder_name VARCHAR(255),
+    account_number VARCHAR(34),
+    ifsc VARCHAR(11),
+    upi_vpa VARCHAR(256),
+    preferred_payout_method VARCHAR(20),
+    razorpay_contact_id VARCHAR(64),
+    razorpay_fund_account_id VARCHAR(64),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- One actual money transfer to a teacher, covering some number of their
+-- completed-but-unpaid classes at the time it was made.
+CREATE TABLE IF NOT EXISTS teacher_payouts (
+    id VARCHAR(36) PRIMARY KEY,
+    teacher_id VARCHAR(36) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'INR',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    session_count INT NOT NULL DEFAULT 0,
+    razorpay_payout_id VARCHAR(64),
+    razorpay_fund_account_id VARCHAR(64),
+    razorpay_contact_id VARCHAR(64),
+    failure_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processed_at TIMESTAMP NULL
+);
+
+CREATE INDEX idx_teacher_payouts_teacher ON teacher_payouts (teacher_id);

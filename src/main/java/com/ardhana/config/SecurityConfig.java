@@ -50,6 +50,8 @@ public class SecurityConfig {
             	    .requestMatchers("/api/auth/send-otp").permitAll()
             	    .requestMatchers("/api/auth/resend-otp").permitAll()
             	    .requestMatchers("/api/auth/verify-otp").permitAll()
+            	    // Served as a plain <img src>, so no JWT is sent with the request.
+            	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/auth/profile/photo/**").permitAll()
             	    .requestMatchers("/h2-console/**").permitAll()
             	    // Razorpay calls this server-to-server with no JWT; it's
             	    // authenticated instead via the X-Razorpay-Signature HMAC check.
@@ -59,6 +61,8 @@ public class SecurityConfig {
             	    // sub-path) needs to be listed explicitly alongside the wildcard.
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/schools", "/api/schools/**").permitAll()
+            	    // Landing-page "Meet Our Teachers" section.
+            	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/teachers/**").permitAll()
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/schools/students/all").authenticated()
             	    .requestMatchers("/api/lesson-attachments/**").authenticated()
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/lessons", "/api/lessons/**").permitAll()
