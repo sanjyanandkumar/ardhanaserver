@@ -25,8 +25,11 @@ public class LessonAttachment {
     @Column(name = "file_type", nullable = false)
     private String fileType;
 
+    // columnDefinition is required here — see ProfilePhoto.fileData for why
+    // (without it Hibernate infers TINYBLOB instead of the LONGBLOB column
+    // schema.sql actually creates).
     @Lob
-    @Column(name = "file_data", nullable = false)
+    @Column(name = "file_data", nullable = false, columnDefinition = "LONGBLOB")
     private byte[] fileData;
 
     @Column(name = "uploaded_at")

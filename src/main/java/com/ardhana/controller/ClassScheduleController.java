@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.ardhana.dto.ClassScheduleRequest;
 import com.ardhana.dto.ClassScheduleResponse;
 import com.ardhana.dto.ClassSessionStatusRequest;
+import com.ardhana.dto.TeacherAssignmentStatusRequest;
 import com.ardhana.model.AppRole;
 import com.ardhana.service.ClassScheduleService;
 import com.ardhana.service.UserRoleService;
@@ -99,6 +100,24 @@ public class ClassScheduleController {
         boolean isAdmin = userRoleService.hasRole(UUID.fromString(principal.getName()), AppRole.admin);
         return ResponseEntity.ok(
                 classScheduleService.updateStatus(id, principal.getName(), isAdmin, request));
+    }
+
+    /**
+     * The assigned teacher accepts a class or flags themselves unavailable
+     * any time before it starts; an admin may also do this on a teacher's
+     * behalf.
+     */
+    @PutMapping("/{id}/assignment-status")
+    public ResponseEntity<ClassScheduleResponse> updateAssignmentStatus(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody TeacherAssignmentStatusRequest request) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        boolean isAdmin = userRoleService.hasRole(UUID.fromString(principal.getName()), AppRole.admin);
+        return ResponseEntity.ok(
+                classScheduleService.updateAssignmentStatus(id, principal.getName(), isAdmin, request));
     }
 
     private void requireAdmin(Principal principal) {

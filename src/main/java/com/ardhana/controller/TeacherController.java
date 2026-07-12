@@ -13,7 +13,11 @@ import com.ardhana.service.TeacherService;
 @RequestMapping("/api/teachers")
 public class TeacherController {
 
-    private static final int FEATURED_LIMIT = 4;
+    // Landing page now shows these in a horizontally-scrolling carousel
+    // (right/left arrows) rather than a fixed 4-up grid, so it's worth
+    // sending more than 4 — the frontend only reveals the arrows once
+    // there's actually more to scroll to.
+    private static final int FEATURED_LIMIT = 12;
 
     private final TeacherService teacherService;
 

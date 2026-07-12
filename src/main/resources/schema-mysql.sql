@@ -219,6 +219,7 @@ CREATE TABLE IF NOT EXISTS class_schedules (
     status VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
     status_reason TEXT,
     status_updated_at TIMESTAMP NULL,
+    assignment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     teacher_payout_id VARCHAR(36),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -228,6 +229,7 @@ CREATE INDEX idx_class_schedules_school ON class_schedules (school_id);
 CREATE INDEX idx_class_schedules_teacher ON class_schedules (teacher_id);
 CREATE INDEX idx_class_schedules_date ON class_schedules (class_date);
 CREATE INDEX idx_class_schedules_status ON class_schedules (status);
+CREATE INDEX idx_class_schedules_assignment_status ON class_schedules (assignment_status);
 CREATE INDEX idx_class_schedules_payout ON class_schedules (teacher_payout_id);
 
 -- Teacher payments: per-teacher agreed rate + (teacher-entered-only) bank
@@ -263,3 +265,26 @@ CREATE TABLE IF NOT EXISTS teacher_payouts (
 );
 
 CREATE INDEX idx_teacher_payouts_teacher ON teacher_payouts (teacher_id);
+
+-- Current Android app build (APK), single row per platform — kept out of
+-- other tables like profile_photos/lesson_attachments so the BLOB is only
+-- loaded when actually serving a download.
+CREATE TABLE IF NOT EXISTS app_download_files (
+    platform VARCHAR(20) PRIMARY KEY,
+    file_name VARCHAR(255) NOT NULL,
+    content_type VARCHAR(150) NOT NULL,
+    file_size BIGINT NOT NULL,
+    file_data LONGBLOB NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Name + mobile number captured from someone downloading the app.
+CREATE TABLE IF NOT EXISTS app_download_leads (
+    id VARCHAR(36) PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    mobile VARCHAR(20) NOT NULL,
+    platform VARCHAR(20) NOT NULL DEFAULT 'android',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_app_download_leads_created_at ON app_download_leads (created_at);

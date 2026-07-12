@@ -23,8 +23,14 @@ public class ProfilePhoto {
     @Column(name = "content_type", nullable = false, length = 100)
     private String contentType;
 
+    // columnDefinition is required here: without it, Hibernate infers the
+    // BLOB subtype from JPA's default @Column length (255) and decides this
+    // should be TINYBLOB — which doesn't match the LONGBLOB column schema.sql
+    // actually creates. On profiles using ddl-auto=update (local MySQL dev),
+    // that mismatch makes Hibernate try to shrink the column on every
+    // startup and fail with "Data too long" once any real photo is stored.
     @Lob
-    @Column(name = "file_data", nullable = false)
+    @Column(name = "file_data", nullable = false, columnDefinition = "LONGBLOB")
     private byte[] fileData;
 
     @Column(name = "updated_at")

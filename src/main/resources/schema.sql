@@ -251,6 +251,13 @@ ALTER TABLE class_schedules ADD COLUMN IF NOT EXISTS status_reason TEXT;
 ALTER TABLE class_schedules ADD COLUMN IF NOT EXISTS status_updated_at TIMESTAMP;
 CREATE INDEX IF NOT EXISTS idx_class_schedules_status ON class_schedules (status);
 
+-- Whether the assigned teacher has accepted a class or flagged themselves
+-- unavailable, set BEFORE the class happens (separate from `status` above,
+-- which is the after-the-fact outcome). Defaults to PENDING for every
+-- existing row.
+ALTER TABLE class_schedules ADD COLUMN IF NOT EXISTS assignment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING';
+CREATE INDEX IF NOT EXISTS idx_class_schedules_assignment_status ON class_schedules (assignment_status);
+
 -- Teacher payments: per-teacher agreed rate + (teacher-entered-only) bank
 -- details for RazorpayX payouts.
 CREATE TABLE IF NOT EXISTS teacher_payout_profiles (
@@ -286,6 +293,29 @@ CREATE TABLE IF NOT EXISTS teacher_payouts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_teacher_payouts_teacher ON teacher_payouts (teacher_id);
+
+-- Current Android app build (APK), single row per platform — kept out of
+-- other tables like profile_photos/lesson_attachments so the BLOB is only
+-- loaded when actually serving a download.
+CREATE TABLE IF NOT EXISTS app_download_files (
+    platform VARCHAR(20) PRIMARY KEY,
+    file_name VARCHAR(255) NOT NULL,
+    content_type VARCHAR(150) NOT NULL,
+    file_size BIGINT NOT NULL,
+    file_data BLOB NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Name + mobile number captured from someone downloading the app.
+CREATE TABLE IF NOT EXISTS app_download_leads (
+    id VARCHAR(36) PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    mobile VARCHAR(20) NOT NULL,
+    platform VARCHAR(20) NOT NULL DEFAULT 'android',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_download_leads_created_at ON app_download_leads (created_at);
 
 -- Links a completed class session to the payout that paid it. NULL = unpaid.
 ALTER TABLE class_schedules ADD COLUMN IF NOT EXISTS teacher_payout_id VARCHAR(36);

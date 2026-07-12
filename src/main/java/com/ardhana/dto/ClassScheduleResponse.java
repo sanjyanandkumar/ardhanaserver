@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 import com.ardhana.model.ClassSessionStatus;
+import com.ardhana.model.TeacherAssignmentStatus;
 
 /** Enriched with names so the frontend doesn't need to join school/course/teacher itself. */
 public class ClassScheduleResponse {
@@ -22,13 +23,15 @@ public class ClassScheduleResponse {
     private ClassSessionStatus status;
     private String statusReason;
     private Instant statusUpdatedAt;
+    private TeacherAssignmentStatus assignmentStatus;
 
     public ClassScheduleResponse(String id, String schoolId, String schoolName,
                                   String courseId, String courseTitle,
                                   String teacherId, String teacherName,
                                   LocalDate classDate, LocalTime startTime, LocalTime endTime,
                                   String notes, ClassSessionStatus status,
-                                  String statusReason, Instant statusUpdatedAt) {
+                                  String statusReason, Instant statusUpdatedAt,
+                                  TeacherAssignmentStatus assignmentStatus) {
         this.id = id;
         this.schoolId = schoolId;
         this.schoolName = schoolName;
@@ -43,6 +46,7 @@ public class ClassScheduleResponse {
         this.status = status;
         this.statusReason = statusReason;
         this.statusUpdatedAt = statusUpdatedAt;
+        this.assignmentStatus = assignmentStatus;
     }
 
     public String getId() { return id; }
@@ -59,4 +63,5 @@ public class ClassScheduleResponse {
     public ClassSessionStatus getStatus() { return status; }
     public String getStatusReason() { return statusReason; }
     public Instant getStatusUpdatedAt() { return statusUpdatedAt; }
+    public TeacherAssignmentStatus getAssignmentStatus() { return assignmentStatus; }
 }

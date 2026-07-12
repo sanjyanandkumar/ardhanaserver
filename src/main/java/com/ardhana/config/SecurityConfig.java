@@ -67,6 +67,13 @@ public class SecurityConfig {
             	    .requestMatchers("/api/lesson-attachments/**").authenticated()
             	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/lessons", "/api/lessons/**").permitAll()
             	    .requestMatchers("/api/my-courses/**").authenticated()
+            	    // Nav-bar "Download App": checking availability, streaming the APK,
+            	    // and submitting the name+mobile lead all happen before/without login.
+            	    // GET /api/app-downloads/leads (the admin list) is NOT included here,
+            	    // so it correctly falls through to anyRequest().authenticated() below,
+            	    // with the admin-role check itself done in the controller.
+            	    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/app-downloads/file-info", "/api/app-downloads/file").permitAll()
+            	    .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/app-downloads/leads").permitAll()
             	    .requestMatchers("/api/admin/**").authenticated()
             	    .anyRequest().authenticated()
             	)

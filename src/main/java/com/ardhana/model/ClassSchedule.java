@@ -51,6 +51,14 @@ public class ClassSchedule {
     @Column(name = "status_updated_at")
     private Instant statusUpdatedAt;
 
+    // Whether the assigned teacher has accepted this class or flagged
+    // themselves unavailable — set BEFORE the class happens, distinct from
+    // `status` above which records the outcome afterward. See
+    // ClassScheduleService.updateAssignmentStatus().
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assignment_status", nullable = false, length = 20)
+    private TeacherAssignmentStatus assignmentStatus = TeacherAssignmentStatus.PENDING;
+
     // Null means "not yet paid". Set to a TeacherPayout.id once that payout
     // (covering this session, among possibly others) succeeds — see
     // TeacherPayoutService.pay().
@@ -68,6 +76,7 @@ public class ClassSchedule {
         if (id == null) id = UUID.randomUUID().toString();
         if (createdAt == null) createdAt = Instant.now();
         if (status == null) status = ClassSessionStatus.SCHEDULED;
+        if (assignmentStatus == null) assignmentStatus = TeacherAssignmentStatus.PENDING;
         updatedAt = Instant.now();
     }
 
@@ -96,6 +105,8 @@ public class ClassSchedule {
     public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
     public Instant getStatusUpdatedAt() { return statusUpdatedAt; }
     public void setStatusUpdatedAt(Instant statusUpdatedAt) { this.statusUpdatedAt = statusUpdatedAt; }
+    public TeacherAssignmentStatus getAssignmentStatus() { return assignmentStatus; }
+    public void setAssignmentStatus(TeacherAssignmentStatus assignmentStatus) { this.assignmentStatus = assignmentStatus; }
     public String getTeacherPayoutId() { return teacherPayoutId; }
     public void setTeacherPayoutId(String teacherPayoutId) { this.teacherPayoutId = teacherPayoutId; }
     public Instant getCreatedAt() { return createdAt; }
