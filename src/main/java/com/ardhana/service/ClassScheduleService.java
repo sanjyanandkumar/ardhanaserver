@@ -42,17 +42,20 @@ public class ClassScheduleService {
     private final CourseRepository courseRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserRoleService userRoleService;
+    private final AdminNotificationService adminNotificationService;
 
     public ClassScheduleService(ClassScheduleRepository classScheduleRepository,
                                  SchoolRepository schoolRepository,
                                  CourseRepository courseRepository,
                                  UserProfileRepository userProfileRepository,
-                                 UserRoleService userRoleService) {
+                                 UserRoleService userRoleService,
+                                 AdminNotificationService adminNotificationService) {
         this.classScheduleRepository = classScheduleRepository;
         this.schoolRepository = schoolRepository;
         this.courseRepository = courseRepository;
         this.userProfileRepository = userProfileRepository;
         this.userRoleService = userRoleService;
+        this.adminNotificationService = adminNotificationService;
     }
 
     public List<ClassScheduleResponse> listAll() {
@@ -174,7 +177,13 @@ public class ClassScheduleService {
         schedule.setAssignmentStatus(request.getStatus());
         ClassSchedule saved = classScheduleRepository.save(schedule);
         log.info("Class schedule {} assignment status set to {} by {}", id, request.getStatus(), callerId);
-        return toResponse(saved);
+        ClassScheduleResponse response = toResponse(saved);
+
+        if (request.getStatus() == TeacherAssignmentStatus.UNAVAILABLE) {
+            adminNotificationService.notifyTeacherUnavailable(response);
+        }
+
+        return response;
     }
 
     /** Validates references and rejects overlapping bookings before applying request fields onto the entity. */

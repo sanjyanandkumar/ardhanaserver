@@ -317,6 +317,31 @@ CREATE TABLE IF NOT EXISTS app_download_leads (
 
 CREATE INDEX IF NOT EXISTS idx_app_download_leads_created_at ON app_download_leads (created_at);
 
+-- Shared, admin-wide alerts (e.g. a teacher marked a class unavailable) —
+-- not per-recipient; every admin sees the same list and read/unread state.
+CREATE TABLE IF NOT EXISTS admin_notifications (
+    id VARCHAR(36) PRIMARY KEY,
+    type VARCHAR(40) NOT NULL,
+    message TEXT NOT NULL,
+    related_class_schedule_id VARCHAR(36),
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_created_at ON admin_notifications (created_at);
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_read ON admin_notifications (is_read);
+
+-- FCM device tokens registered by admin app installs, so PushNotificationService
+-- knows where to send alerts. Keyed by token so re-registering upserts.
+CREATE TABLE IF NOT EXISTS admin_push_tokens (
+    token VARCHAR(255) PRIMARY KEY,
+    admin_user_id VARCHAR(36) NOT NULL,
+    platform VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_push_tokens_user ON admin_push_tokens (admin_user_id);
+
 -- Links a completed class session to the payout that paid it. NULL = unpaid.
 ALTER TABLE class_schedules ADD COLUMN IF NOT EXISTS teacher_payout_id VARCHAR(36);
 CREATE INDEX IF NOT EXISTS idx_class_schedules_payout ON class_schedules (teacher_payout_id);

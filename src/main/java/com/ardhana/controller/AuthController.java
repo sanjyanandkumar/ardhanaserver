@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.ardhana.dto.AuthResponse;
+import com.ardhana.dto.ForgotPasswordRequest;
 import com.ardhana.dto.LoginRequest;
 import com.ardhana.dto.ProfileResponse;
 import com.ardhana.dto.RegisterRequest;
@@ -108,6 +109,17 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * TEMPORARY/INTERIM: resets a user's password given just their email —
+     * no verification step yet (see ForgotPasswordRequest). Planned to be
+     * replaced with an email-link or OTP verification step.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/profile")

@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.ardhana.dto.AuthResponse;
+import com.ardhana.dto.ForgotPasswordRequest;
 import com.ardhana.dto.LoginRequest;
 import com.ardhana.dto.ProfileResponse;
 import com.ardhana.dto.RegisterRequest;
@@ -126,6 +127,22 @@ public class AuthService {
         String role = roleFor(profile.getId());
         String token = jwtService.generateToken(profile.getId(), profile.getEmail());
         return new AuthResponse(token, toProfileResponse(profile, role));
+    }
+
+    /**
+     * TEMPORARY/INTERIM: resets a user's password with no identity
+     * verification — see ForgotPasswordRequest for why. Deliberately does
+     * NOT return whether the email exists in either the success or failure
+     * path's timing/content beyond a generic message, but note this is not
+     * a real security boundary until a verification step is added.
+     */
+    public void resetPassword(ForgotPasswordRequest request) {
+        UserProfile profile = userProfileRepository.findByEmail(request.getEmail())
+            .orElseThrow(() -> new IllegalArgumentException("No account found with that email"));
+
+        profile.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userProfileRepository.save(profile);
+        log.warn("Password reset via forgot-password (no verification) for user {}", profile.getId());
     }
 
     public Optional<ProfileResponse> getProfile(String userId) {

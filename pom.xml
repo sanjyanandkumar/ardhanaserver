@@ -99,6 +99,14 @@
 		    <version>1.4.9</version>
 		</dependency>
 
+		<!-- Firebase Admin SDK — sends push notifications (FCM) to the Android
+		     app, e.g. to alert admins when a teacher marks a class unavailable. -->
+		<dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-admin</artifactId>
+			<version>9.9.0</version>
+		</dependency>
+
 		<!-- Cloud SQL (MySQL) socket factory -->
 		<dependency>
 			<groupId>com.google.cloud.sql</groupId>

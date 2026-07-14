@@ -45,6 +45,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
             	    .requestMatchers("/api/auth/register").permitAll()
             	    .requestMatchers("/api/auth/login").permitAll()
+            	    // TEMPORARY/INTERIM — no verification step yet, see ForgotPasswordRequest.
+            	    .requestMatchers("/api/auth/forgot-password").permitAll()
             	    // Phone verification happens before an account exists, so it
             	    // can't require a JWT — MSG91 send/resend/verify OTP.
             	    .requestMatchers("/api/auth/send-otp").permitAll()
