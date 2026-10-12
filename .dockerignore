@@ -6,3 +6,4 @@ data/
 .mvn/
 mvnw
 mvnw.cmd
+deploy/

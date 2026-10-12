@@ -1,0 +1,27 @@
+# Ardhana's site block for Kettlio's Caddy on the shared host. Copy it into Kettlio with the real
+# domain (see README.md in this folder):
+#   sed 's/ardhana.in/YOUR-DOMAIN/g' ardhana.caddy > ~/ketlio/deploy/sites/ardhana.caddy
+#
+#   /api/*          -> ardhana-api (Spring Boot, 8085)
+#   everything else -> ardhana-web (static React app)
+
+ardhana.in, www.ardhana.in {
+	encode gzip
+
+	# One origin: send www to the bare domain.
+	@www host www.ardhana.in
+	redir @www https://ardhana.in{uri} permanent
+
+	@api path /api/*
+	handle @api {
+		# APK uploads (app_download_files) can be up to 100 MB — the API's own limit.
+		request_body {
+			max_size 100MB
+		}
+		reverse_proxy ardhana-api:8085
+	}
+
+	handle {
+		reverse_proxy ardhana-web:80
+	}
+}

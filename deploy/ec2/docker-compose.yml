@@ -1,0 +1,74 @@
+# Ardhana on the shared EC2 host, next to Kettlio (and Prakaram). This project runs only the API
+# and the web app. MySQL and the HTTPS front door (Caddy, ports 80/443) are Kettlio's:
+#   - both services join Kettlio's Docker network, so the API reaches Kettlio's MySQL as `db`
+#     (database `ardhana`, its own user — created by init-db.sh), and
+#   - Kettlio's Caddy routes Ardhana's domain here via ardhana.caddy.
+# Service names are prefixed (`ardhana-…`) because they share that network with Kettlio's own
+# `backend` / `frontend`. See README.md in this folder. Run every command from this folder.
+#
+# Non-secret config comes from .env here (see .env.example). Secrets come from AWS Secrets Manager
+# via fetch-secrets.sh, which writes one file per key into ./secrets/app/ — Spring reads them as a
+# config tree (never as container env vars).
+#
+# Expected layout on the server:
+#   ~/ardhana/ardhana             this repo (ardhanaserver)
+#   ~/ardhana/dear-digital-space  the web/Android app repo (override with WEB_SRC_DIR)
+
+name: ardhana
+
+services:
+  ardhana-api:
+    build: ../..
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      SPRING_PROFILES_ACTIVE: aws
+      PORT: "8085"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70"
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-ardhana}
+      DB_USER: ${DB_USER:-ardhana}
+      # DB_PASSWORD, JWT_SECRET, Razorpay/RazorpayX, MSG91, MAIL_* — one file per key.
+      SPRING_CONFIG_IMPORT: "optional:configtree:/run/secrets/app/"
+      # https://localhost = the Capacitor Android app's WebView origin.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-${PUBLIC_URL},https://localhost}
+      FRONTEND_URL: ${PUBLIC_URL}
+      # Push notifications (FCM). Missing file = push disabled, the app still runs.
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase/firebase-sa.json
+    volumes:
+      - ./secrets/app:/run/secrets/app:ro
+      - ./secrets/firebase:/run/secrets/firebase:ro
+    networks: [shared]
+
+  ardhana-web:
+    build:
+      context: ${WEB_SRC_DIR:-../../../dear-digital-space}
+      args:
+        PUBLIC_URL: ${PUBLIC_URL}
+      # Kept here so the web repo needs no deployment files. Static Vite SPA served by a tiny Caddy
+      # (SPA fallback to index.html); Kettlio's Caddy in front handles HTTPS.
+      dockerfile_inline: |
+        FROM node:20-alpine AS build
+        WORKDIR /app
+        COPY package.json package-lock.json ./
+        RUN npm ci
+        COPY . .
+        ARG PUBLIC_URL
+        # Vite inlines VITE_* at build time; these override .env / .env.production.
+        ENV VITE_ARDHANA_API_URL=$${PUBLIC_URL}/
+        ENV VITE_API_BASE_URL=$${PUBLIC_URL}/api
+        RUN npm run build
+
+        FROM caddy:2-alpine
+        COPY --from=build /app/dist /srv
+        RUN printf ':80 {\n\troot * /srv\n\tencode gzip\n\ttry_files {path} /index.html\n\tfile_server\n}\n' > /etc/caddy/Caddyfile
+    restart: unless-stopped
+    mem_limit: 128m
+    networks: [shared]
+
+networks:
+  shared:
+    external: true
+    # Kettlio's compose network (its project folder is `ketlio`).
+    name: ${SHARED_NETWORK:-ketlio_default}
