@@ -1,6 +1,7 @@
 # Ardhana on AWS
 
-Replaces the GCP setup (Cloud Run + Cloud SQL + Firebase Hosting). Region: **ap-south-1 (Mumbai)**.
+**This is the production deployment.** It replaces the GCP setup (Cloud Run + Cloud SQL + Firebase
+Hosting); the Docker-on-Kettlio design in `../ec2/` is superseded. Region: **ap-south-1 (Mumbai)**.
 
 ```
 Browser / Android app
