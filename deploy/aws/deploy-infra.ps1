@@ -11,7 +11,8 @@ param(
     [string]$CertificateArn,
     [string]$InstanceType = 't4g.small',
     [switch]$Plan,       # create the change set and list it, without executing
-    [switch]$UpgradeAmi  # move to the latest Amazon Linux AMI - REPLACES the instance (redeploy the backend after)
+    [switch]$UpgradeAmi, # move to the latest Amazon Linux AMI - REPLACES the instance (redeploy the backend after)
+    [switch]$DirectHttps # open 80/443 for Caddy on the instance (see setup-direct-https.ps1)
 )
 . "$PSScriptRoot\common.ps1"
 
@@ -67,6 +68,7 @@ $overrides = @(
 # Always pass both explicitly: `cloudformation deploy` otherwise reuses the stack's previous values.
 $overrides += $(if ($Domain) { "DomainNames=$Domain,www.$Domain" } else { 'DomainNames=' })
 $overrides += "CertificateArn=$CertificateArn"
+$overrides += "DirectHttps=$(([bool]$DirectHttps).ToString().ToLower())"
 
 Write-Host "Deploying stack $StackName in $Region ($InstanceType/$arch, $ami, MySQL $dbVersion, VPC $vpcId)..."
 $planArgs = @(if ($Plan) { '--no-execute-changeset' })

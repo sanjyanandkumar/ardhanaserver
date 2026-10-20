@@ -46,12 +46,20 @@ Parameters:
     Type: String
     Default: ""
     Description: ACM certificate in us-east-1 covering DomainNames (required when DomainNames is set)
+  DirectHttps:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >
+      Open 80/443 on the instance so Caddy can serve the domain directly (Let's Encrypt), bypassing
+      CloudFront. Used while ardhana.in is held by another account's CloudFront distribution.
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref CertificateArn, ""]]
   # Certificate without aliases is a valid intermediate state: CloudFront requires the cert to be
   # attached before an alias held by another account can be moved here (associate-alias).
   HasAliases: !Not [!Equals [!Join ["", !Ref DomainNames], ""]]
+  IsDirectHttps: !Equals [!Ref DirectHttps, "true"]
 
 Resources:
   # ---------------------------------------------------------------- network
@@ -66,6 +74,30 @@ Resources:
           ToPort: 8085
           SourcePrefixListId: !Ref CloudFrontPrefixListId
           Description: CloudFront origin-facing
+
+  # Direct HTTPS mode: Caddy on the instance terminates TLS for the domain (see setup-direct-https.ps1).
+  # Port 8085 stays CloudFront-only; Caddy reaches the app on localhost.
+  DirectHttpIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IsDirectHttps
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
+      Description: Caddy - HTTP (ACME challenge and redirect to HTTPS)
+
+  DirectHttpsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IsDirectHttps
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+      Description: Caddy - HTTPS
 
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup

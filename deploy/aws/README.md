@@ -77,6 +77,31 @@ If the provider cannot alias the apex, move the zone to Route 53 (~$0.50/mo) and
 After cutover, rebuild the frontend without `-ApiHost` (`.\deploy-frontend.ps1`) so it uses `https://ardhana.in`,
 and update the **Razorpay webhook** URL to `https://ardhana.in/api/payments/webhook` (same path as before).
 
+### Current state: direct HTTPS on EC2 (temporary)
+
+`ardhana.in` / `www.ardhana.in` are still attached to an **enabled CloudFront distribution in an old,
+inaccessible AWS account** (`…288780`), so CloudFront refuses them as alternate domain names
+(`CNAMEAlreadyExists`; `associate-alias` → "source distribution is enabled"). Until AWS Support moves them:
+
+```
+Browser ──https──► EC2 :443 Caddy (Let's Encrypt, auto-renew)
+                     ├─ /api/* ──► Spring Boot 127.0.0.1:8085
+                     └─ /*     ──► CloudFront d…cloudfront.net ──► S3 (SPA)
+```
+
+- Route 53 `ardhana.in` / `www` are plain **A records → the Elastic IP** (not CloudFront aliases).
+- Stack runs with `-DirectHttps` (80/443 open) and `-CertificateArn` (ACM cert attached, no aliases).
+- Set up / update Caddy: `.\setup-direct-https.ps1 -Domain ardhana.in`.
+- **Always pass the same flags** to `deploy-infra.ps1`, or the ports close:
+  `.\deploy-infra.ps1 -CertificateArn <arn> -DirectHttps`
+
+**Switching back to CloudFront** once AWS Support confirms the move (TXT records `_.ardhana.in` and
+`_www.ardhana.in` → the distribution domain are already in Route 53 as ownership proof):
+1. `.\deploy-infra.ps1 -Domain ardhana.in -CertificateArn <arn> -DirectHttps -Plan`, then apply without `-Plan`.
+2. Change both Route 53 A records back to **alias → the CloudFront distribution**.
+3. After DNS settles, re-run `deploy-infra.ps1 -Domain ardhana.in -CertificateArn <arn>` (no `-DirectHttps`)
+   to close 80/443, then on the instance `sudo systemctl disable --now caddy`.
+
 ## Everyday operations
 
 | Task | Command |

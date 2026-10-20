@@ -1,6 +1,12 @@
 # Shared settings and helpers for the deploy/aws scripts. Dot-source it: . "$PSScriptRoot\common.ps1"
 $ErrorActionPreference = 'Stop'
 
+# The AWS CLI (Python) crashes with "'charmap' codec can't encode character" when remote output
+# (e.g. journald logs) contains non-ASCII text and Windows' default code page is in use.
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUTF8 = '1'
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+
 $Region      = 'ap-south-1'
 $StackName   = 'ardhana-prod'
 $ParamPrefix = '/ardhana/prod'
