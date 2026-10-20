@@ -1,0 +1,423 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Ardhana production on AWS - Spring Boot backend on one EC2 instance, RDS MySQL,
+  React SPA on S3 behind CloudFront. CloudFront serves the SPA and forwards /api/*
+  to EC2, so the web app stays same-origin (same shape as the old Firebase rewrite).
+
+Parameters:
+  ParamPrefix:
+    Type: String
+    Default: /ardhana/prod
+    Description: SSM Parameter Store prefix holding the app's env vars (see set-secrets.ps1)
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two subnets in different AZs (RDS requires it); EC2 goes in the first
+  CloudFrontPrefixListId:
+    Type: String
+    Description: Managed prefix list com.amazonaws.global.cloudfront.origin-facing for this region
+  InstanceType:
+    Type: String
+    Default: t4g.small
+    Description: Must match the AMI architecture (t4g = arm64, t3 = x86_64)
+  AmiId:
+    # A concrete AMI ID, resolved by deploy-infra.ps1 (the running instance's AMI on updates).
+    # Not an SSM "latest" path: that re-resolves on every deploy and replaces the instance
+    # whenever AWS publishes a new Amazon Linux image.
+    Type: AWS::EC2::Image::Id
+  DbName:
+    Type: String
+    Default: ardhana
+  DbUser:
+    Type: String
+    Default: ardhana_admin
+  DbEngineVersion:
+    Type: String
+    Default: "8.4"
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+  DomainNames:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: e.g. ardhana.in,www.ardhana.in - leave empty to use the cloudfront.net URL only
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate in us-east-1 covering DomainNames (required when DomainNames is set)
+  DirectHttps:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >
+      Open 80/443 on the instance so Caddy can serve the domain directly (Let's Encrypt), bypassing
+      CloudFront. Used while ardhana.in is held by another account's CloudFront distribution.
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref CertificateArn, ""]]
+  # Certificate without aliases is a valid intermediate state: CloudFront requires the cert to be
+  # attached before an alias held by another account can be moved here (associate-alias).
+  HasAliases: !Not [!Equals [!Join ["", !Ref DomainNames], ""]]
+  IsDirectHttps: !Equals [!Ref DirectHttps, "true"]
+
+Resources:
+  # ---------------------------------------------------------------- network
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Ardhana backend - only CloudFront may reach the app port
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8085
+          ToPort: 8085
+          SourcePrefixListId: !Ref CloudFrontPrefixListId
+          Description: CloudFront origin-facing
+
+  # Direct HTTPS mode: Caddy on the instance terminates TLS for the domain (see setup-direct-https.ps1).
+  # Port 8085 stays CloudFront-only; Caddy reaches the app on localhost.
+  DirectHttpIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IsDirectHttps
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
+      Description: Caddy - HTTP (ACME challenge and redirect to HTTPS)
+
+  DirectHttpsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IsDirectHttps
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      CidrIp: 0.0.0.0/0
+      Description: Caddy - HTTPS
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Ardhana RDS - only the backend instance may connect
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Ardhana RDS subnets
+      SubnetIds: !Ref SubnetIds
+
+  # --------------------------------------------------------------- database
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: mysql
+      EngineVersion: !Ref DbEngineVersion
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: "20"
+      StorageType: gp2
+      StorageEncrypted: true
+      DBName: !Ref DbName
+      MasterUsername: !Ref DbUser
+      MasterUserPassword: !Sub "{{resolve:ssm-secure:${ParamPrefix}/env/DB_PASSWORD}}"
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      PubliclyAccessible: false
+      MultiAZ: false
+      # Free-plan accounts reject retention > 1 day. Raise it once on a paid plan.
+      BackupRetentionPeriod: 1
+      DeletionProtection: true
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+
+  # ---------------------------------------------------------------- storage
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub "${SiteBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+  # Backend jars and schema files; the instance pulls from here during deploys.
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-jars
+            Status: Enabled
+            Prefix: backend/releases/
+            ExpirationInDays: 30
+
+  # ---------------------------------------------------------------- compute
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ardhana-runtime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ssm:GetParametersByPath, ssm:GetParameter, ssm:GetParameters]
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${ParamPrefix}"
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${ParamPrefix}/*"
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${ArtifactsBucket.Arn}/*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  BackendInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Select [0, !Ref SubnetIds]
+      SecurityGroupIds: [!Ref AppSecurityGroup]
+      MetadataOptions:
+        HttpTokens: required
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: {VolumeSize: 20, VolumeType: gp3, Encrypted: true}
+      Tags:
+        - {Key: Name, Value: ardhana-backend}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y java-21-amazon-corretto-headless mariadb105
+
+          # 1 GB swap: headroom for the JVM on a 2 GB instance
+          if [ ! -f /swapfile ]; then
+            dd if=/dev/zero of=/swapfile bs=1M count=1024
+            chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+
+          useradd --system --home-dir /opt/ardhana --shell /sbin/nologin ardhana || true
+          mkdir -p /opt/ardhana /etc/ardhana
+          chown ardhana:ardhana /opt/ardhana
+
+          cat > /etc/ardhana/infra.env <<'EOF'
+          SPRING_PROFILES_ACTIVE=aws
+          PORT=8085
+          DB_HOST=${Database.Endpoint.Address}
+          DB_PORT=${Database.Endpoint.Port}
+          DB_NAME=${DbName}
+          DB_USER=${DbUser}
+          AWS_REGION=${AWS::Region}
+          ARDHANA_PARAM_PREFIX=${ParamPrefix}
+          EOF
+
+          # Pulls every ${ParamPrefix}/env/* parameter into secrets.env (KEY=value),
+          # plus the optional Firebase service-account key for push notifications.
+          cat > /opt/ardhana/load-secrets.py <<'EOF'
+          import json, os, subprocess
+          region = os.environ.get("AWS_REGION") or open("/etc/ardhana/infra.env").read().split("AWS_REGION=")[1].split()[0]
+          prefix = open("/etc/ardhana/infra.env").read().split("ARDHANA_PARAM_PREFIX=")[1].split()[0]
+          def aws(*args):
+              return subprocess.run(["aws", "--region", region, "--output", "json", *args],
+                                    check=True, capture_output=True, text=True).stdout
+          params = json.loads(aws("ssm", "get-parameters-by-path", "--path", prefix + "/env",
+                                  "--recursive", "--with-decryption"))["Parameters"]
+          lines = []
+          for p in params:
+              key = p["Name"].rsplit("/", 1)[1]
+              val = p["Value"].replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+              lines.append(f'{key}="{val}"')
+          try:
+              sa = json.loads(aws("ssm", "get-parameter", "--name", prefix + "/firebase-service-account-json",
+                                  "--with-decryption"))["Parameter"]["Value"]
+              path = "/etc/ardhana/firebase-sa.json"
+              with open(path, "w") as f:
+                  f.write(sa)
+              os.chmod(path, 0o440)
+              os.system("chown root:ardhana " + path)
+              lines.append(f'GOOGLE_APPLICATION_CREDENTIALS="{path}"')
+          except subprocess.CalledProcessError:
+              pass  # optional - the app logs "push notifications disabled" and carries on
+          fd = os.open("/etc/ardhana/secrets.env", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+          with os.fdopen(fd, "w") as f:
+              f.write("\n".join(lines) + "\n")
+          EOF
+
+          cat > /etc/systemd/system/ardhana.service <<'EOF'
+          [Unit]
+          Description=Ardhana backend
+          After=network-online.target
+          Wants=network-online.target
+          ConditionPathExists=/opt/ardhana/app.jar
+
+          [Service]
+          User=ardhana
+          WorkingDirectory=/opt/ardhana
+          ExecStartPre=+/usr/bin/python3 /opt/ardhana/load-secrets.py
+          EnvironmentFile=/etc/ardhana/infra.env
+          EnvironmentFile=-/etc/ardhana/secrets.env
+          ExecStart=/usr/bin/java -XX:MaxRAMPercentage=60 -jar /opt/ardhana/app.jar
+          Restart=always
+          RestartSec=5
+          SuccessExitStatus=143
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          systemctl daemon-reload
+          systemctl enable ardhana.service
+
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref BackendInstance
+
+  # -------------------------------------------------------------------- CDN
+  SiteOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-site"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # SPA fallback: any path whose last segment has no file extension -> /index.html.
+  # (Distribution-wide 403/404 error pages would also rewrite real API 404s.)
+  SpaRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${AWS::StackName}-spa-rewrite"
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Rewrite client-side routes to /index.html
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var req = event.request;
+          var last = req.uri.split('/').pop();
+          if (last.indexOf('.') === -1) {
+            req.uri = '/index.html';
+          }
+          return req;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: Ardhana web + API
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200
+        DefaultRootObject: index.html
+        Aliases: !If [HasAliases, !Ref DomainNames, !Ref AWS::NoValue]
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt SiteOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - Id: backend
+            # Public DNS name of the Elastic IP (CloudFront origins must be hostnames).
+            DomainName: !Join
+              - ""
+              - - "ec2-"
+                - !Join ["-", !Split [".", !Ref ElasticIp]]
+                - !Sub ".${AWS::Region}.compute.amazonaws.com"
+            CustomOriginConfig:
+              HTTPPort: 8085
+              OriginProtocolPolicy: http-only
+              OriginReadTimeout: 60
+              OriginKeepaliveTimeout: 5
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6           # Managed-CachingOptimized
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # Managed-SecurityHeadersPolicy
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRewriteFunction.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: backend
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad           # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac   # Managed-AllViewerExceptHostHeader
+
+Outputs:
+  DistributionDomain:
+    Value: !GetAtt Distribution.DomainName
+  DistributionId:
+    Value: !Ref Distribution
+  SiteBucket:
+    Value: !Ref SiteBucket
+  ArtifactsBucket:
+    Value: !Ref ArtifactsBucket
+  InstanceId:
+    Value: !Ref BackendInstance
+  ElasticIp:
+    Value: !Ref ElasticIp
+  DbEndpoint:
+    Value: !GetAtt Database.Endpoint.Address

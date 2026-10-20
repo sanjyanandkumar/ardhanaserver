@@ -1,8 +1,12 @@
 # Deploying Ardhana to the shared AWS EC2 host (next to Kettlio)
 
-Ardhana runs on the same EC2 instance as **Kettlio** and **Prakaram**, reusing Kettlio's MySQL and
-Kettlio's Caddy (HTTPS on 80/443). This replaces the standalone CloudFormation design in
-`../aws/` (own EC2 + RDS + CloudFront) — that one is not used.
+> **Superseded — not the production deployment.** Production runs on the standalone
+> CloudFormation stack in [`../aws/`](../aws/README.md) (own EC2 + RDS + CloudFront), chosen
+> 2026-10-20 for isolation from Kettlio/Prakaram and a managed database with backups.
+> This directory is kept for reference only; do not deploy it alongside `../aws/`.
+
+Design (historical): Ardhana on the same EC2 instance as **Kettlio** and **Prakaram**, reusing
+Kettlio's MySQL and Kettlio's Caddy (HTTPS on 80/443).
 
 ```
                          Internet  (browser + Android app)
