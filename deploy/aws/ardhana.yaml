@@ -22,8 +22,10 @@ Parameters:
     Default: t4g.small
     Description: Must match the AMI architecture (t4g = arm64, t3 = x86_64)
   AmiId:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+    # A concrete AMI ID, resolved by deploy-infra.ps1 (the running instance's AMI on updates).
+    # Not an SSM "latest" path: that re-resolves on every deploy and replaces the instance
+    # whenever AWS publishes a new Amazon Linux image.
+    Type: AWS::EC2::Image::Id
   DbName:
     Type: String
     Default: ardhana

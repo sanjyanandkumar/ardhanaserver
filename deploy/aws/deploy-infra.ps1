@@ -10,7 +10,8 @@ param(
     [string]$Domain,
     [string]$CertificateArn,
     [string]$InstanceType = 't4g.small',
-    [switch]$Plan   # create the change set and list it, without executing
+    [switch]$Plan,       # create the change set and list it, without executing
+    [switch]$UpgradeAmi  # move to the latest Amazon Linux AMI - REPLACES the instance (redeploy the backend after)
 )
 . "$PSScriptRoot\common.ps1"
 
@@ -27,7 +28,18 @@ if (($eligible -split '\s+') -notcontains $InstanceType) {
 }
 $arch = Invoke-Aws ec2 describe-instance-types --instance-types $InstanceType `
     --query 'InstanceTypes[0].ProcessorInfo.SupportedArchitectures[0]' --output text
-$ami = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-$arch"
+# Keep the running instance's AMI so a routine update never replaces the server; only -UpgradeAmi
+# (or a first deploy) picks up the latest Amazon Linux 2023 image.
+$prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+$currentInstance = & aws --region $Region cloudformation describe-stack-resource --stack-name $StackName `
+    --logical-resource-id BackendInstance --query 'StackResourceDetail.PhysicalResourceId' --output text 2>$null
+$ErrorActionPreference = $prev
+if ($LASTEXITCODE -eq 0 -and $currentInstance -and -not $UpgradeAmi) {
+    $ami = Invoke-Aws ec2 describe-instances --instance-ids $currentInstance --query 'Reservations[0].Instances[0].ImageId' --output text
+} else {
+    $ami = Invoke-Aws ssm get-parameter --name "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-$arch" `
+        --query Parameter.Value --output text
+}
 
 # Default VPC and its subnets (RDS needs subnets in >= 2 AZs).
 $vpcId = Invoke-Aws ec2 describe-vpcs --filters Name=is-default,Values=true --query 'Vpcs[0].VpcId' --output text
@@ -52,7 +64,7 @@ $overrides = @(
 )
 if ($Domain) { $overrides += "DomainNames=$Domain,www.$Domain", "CertificateArn=$CertificateArn" }
 
-Write-Host "Deploying stack $StackName in $Region ($InstanceType/$arch, MySQL $dbVersion, VPC $vpcId)..."
+Write-Host "Deploying stack $StackName in $Region ($InstanceType/$arch, $ami, MySQL $dbVersion, VPC $vpcId)..."
 $planArgs = @(if ($Plan) { '--no-execute-changeset' })
 Invoke-Aws cloudformation deploy `
     --stack-name $StackName `
