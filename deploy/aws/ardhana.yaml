@@ -49,6 +49,9 @@ Parameters:
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref CertificateArn, ""]]
+  # Certificate without aliases is a valid intermediate state: CloudFront requires the cert to be
+  # attached before an alias held by another account can be moved here (associate-alias).
+  HasAliases: !Not [!Equals [!Join ["", !Ref DomainNames], ""]]
 
 Resources:
   # ---------------------------------------------------------------- network
@@ -327,7 +330,7 @@ Resources:
         HttpVersion: http2and3
         PriceClass: PriceClass_200
         DefaultRootObject: index.html
-        Aliases: !If [HasCustomDomain, !Ref DomainNames, !Ref AWS::NoValue]
+        Aliases: !If [HasAliases, !Ref DomainNames, !Ref AWS::NoValue]
         ViewerCertificate: !If
           - HasCustomDomain
           - AcmCertificateArn: !Ref CertificateArn

@@ -18,7 +18,9 @@ param(
 if (-not (Test-ParamExists "$ParamPrefix/env/DB_PASSWORD")) {
     throw "Run .\set-secrets.ps1 first - the stack reads DB_PASSWORD from $ParamPrefix/env/DB_PASSWORD."
 }
-if ([bool]$Domain -ne [bool]$CertificateArn) { throw 'Pass -Domain and -CertificateArn together (or neither).' }
+if ($Domain -and -not $CertificateArn) { throw '-Domain needs -CertificateArn (an ACM cert in us-east-1 covering it).' }
+# -CertificateArn alone attaches the cert without domain names - the first step of moving a
+# domain that another AWS account's CloudFront distribution still holds (see README).
 
 # Guard against free-plan surprises: the instance type must be free-tier eligible on this account.
 $eligible = Invoke-Aws ec2 describe-instance-types --filters Name=free-tier-eligible,Values=true `
@@ -62,7 +64,9 @@ $overrides = @(
     "DbEngineVersion=$dbVersion",
     "ParamPrefix=$ParamPrefix"
 )
-if ($Domain) { $overrides += "DomainNames=$Domain,www.$Domain", "CertificateArn=$CertificateArn" }
+# Always pass both explicitly: `cloudformation deploy` otherwise reuses the stack's previous values.
+$overrides += $(if ($Domain) { "DomainNames=$Domain,www.$Domain" } else { 'DomainNames=' })
+$overrides += "CertificateArn=$CertificateArn"
 
 Write-Host "Deploying stack $StackName in $Region ($InstanceType/$arch, $ami, MySQL $dbVersion, VPC $vpcId)..."
 $planArgs = @(if ($Plan) { '--no-execute-changeset' })
